@@ -66,7 +66,7 @@ angular.module('ngDfp', [])
         definedSlots[id] = googletag.defineSlot.apply(null, slot).addService(googletag.pubads());
       });
 
-      googletag.pubads().enableSingleRequest();
+      googletag.pubads().collapseEmptyDivs(true,true);
       googletag.enableServices();
 
       googletag.pubads().addEventListener('slotRenderEnded', this._slotRenderEnded);
@@ -238,14 +238,16 @@ angular.module('ngDfp', [])
     };
   })
 
-  .directive('ngDfpAd', ['$timeout', '$parse', '$interval', 'DoubleClick', function ($timeout, $parse, $interval, DoubleClick) {
+  .directive('ngDfpAd', ['$timeout', '$animate', '$parse', '$interval', 'DoubleClick', function ($timeout, $animate, $parse, $interval, DoubleClick) {
     return {
       restrict: 'A',
       template: '<div id="{{adId}}"></div>',
       require: '?^ngDfpAdContainer',
       scope: {
         adId: '@ngDfpAd',
-        interval: '@ngDfpAdRefreshInterval'
+        refresh: '@ngDfpAdRefresh',
+        interval: '@ngDfpAdRefreshInterval',
+        timeout: '@ngDfpAdRefreshTimeout'
       },
       replace: true,
       link: function (scope, element, attrs, ngDfpAdContainer) {
@@ -258,7 +260,6 @@ angular.module('ngDfp', [])
           DoubleClick.getSlot(id).then(function (slot) {
             var size = slot.getSize();
 
-            element.css('width', size[0]).css('height', size[1]);
             $timeout(function () {
               DoubleClick.runAd(id);
             });
@@ -281,6 +282,14 @@ angular.module('ngDfp', [])
               });
             }
 
+            // Forces Refresh
+            scope.$watch('refresh', function (refresh) {
+              if (angular.isUndefined(refresh)) {
+                return;
+              }
+              DoubleClick.refreshAds(id);
+            });
+
             // Refresh intervals
             scope.$watch('interval', function (interval) {
               if (angular.isUndefined(interval)) {
@@ -293,6 +302,17 @@ angular.module('ngDfp', [])
               intervalPromise = $interval(function () {
                 DoubleClick.refreshAds(id);
               }, scope.interval);
+            });
+
+            // Refresh after timeout
+            scope.$watch('timeout', function (timeout) {
+              if (angular.isUndefined(timeout)) {
+                return;
+              }
+
+              $timeout(function () {
+                DoubleClick.refreshAds(id);
+              }, scope.timeout);
             });
           });
         });
